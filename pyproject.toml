@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "suno-playlist-downloader"
+version = "1.0.0"
+description = "Download audio files from Suno playlists using the undocumented Suno API"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = ["suno", "music", "downloader", "playlist", "audio"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "requests>=2.31.0",
+    "PyYAML>=6.0",
+    "tqdm>=4.65.0",
+]
+
+[project.optional-dependencies]
+auth = [
+    "playwright>=1.40.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/suno-playlist-downloader"
+Issues = "https://github.com/yourusername/suno-playlist-downloader/issues"
+
+[project.scripts]
+suno-download = "suno_downloader.cli:main"
+suno-auth = "suno_downloader.auth_fetch:cli_main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["suno_downloader*"]
+
+[tool.setuptools.package-data]
+suno_downloader = ["*.yaml"]
