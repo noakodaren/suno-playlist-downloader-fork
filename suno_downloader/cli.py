@@ -152,10 +152,10 @@ def process_playlist(api: SunoAPI, playlist_id: str, cfg: dict):
         playlist_id
     )
 
-    clips = playlist_data.get('clips') or playlist_data.get('items') or []
+    clips = playlist_data.get('playlist_clips') or playlist_data.get('clips') or playlist_data.get('items') or []
 
     out_root = cfg.get('output_root', './downloads')
-    playlist_folder = os.path.join(out_root, sanitize_filename(playlist_title))
+    playlist_folder = os.path.join(out_root, f"{sanitize_filename(playlist_title)}_{playlist_id}")
     os.makedirs(playlist_folder, exist_ok=True)
 
     manifest = []
@@ -165,6 +165,7 @@ def process_playlist(api: SunoAPI, playlist_id: str, cfg: dict):
         futures = {}
         
         for clip in clips:
+            clip = clip.get('clip')
             clip_id = clip.get('id') if isinstance(clip, dict) else clip
             title = clip.get('title') if isinstance(clip, dict) else clip_id
             safe_title = sanitize_filename(title)
@@ -173,14 +174,10 @@ def process_playlist(api: SunoAPI, playlist_id: str, cfg: dict):
                 signed = api.request_download_url(clip_id)
             except Exception as e:
                 print(f"Failed to request download url for {clip_id}: {e}")
-                continue
-
-            if not signed:
-                print(f"No signed URL for {clip_id}")
-                continue
+                raise
 
             ext = os.path.splitext(signed.split('?')[0])[1] or '.wav'
-            out_path = os.path.join(playlist_folder, f"{safe_title}{ext}")
+            out_path = os.path.join(playlist_folder, f"{safe_title}_{clip_id}{ext}")
 
             futures[ex.submit(
                 download_with_retries,
@@ -201,18 +198,15 @@ def process_playlist(api: SunoAPI, playlist_id: str, cfg: dict):
 
         for fut in as_completed(futures):
             info = futures[fut]
-            try:
-                fut.result()
-                print(f"Downloaded: {info['title']}")
-                manifest.append({
-                    'playlist_id': playlist_id,
-                    'clip_id': info['clip_id'],
-                    'title': info['title'],
-                    'file_path': info['path'],
-                    'download_url': info['url'],
-                })
-            except Exception as e:
-                print(f"Failed download for {info['clip_id']}: {e}")
+            fut.result()
+            print(f"Downloaded: {info['title']}")
+            manifest.append({
+                'playlist_id': playlist_id,
+                'clip_id': info['clip_id'],
+                'title': info['title'],
+                'file_path': info['path'],
+                'download_url': info['url'],
+            })
 
     # Save manifests
     if cfg.get('manifest_json', True):
@@ -314,6 +308,7 @@ def main():
             process_playlist(api, pid, cfg)
         except Exception as e:
             print(f"Error processing playlist {pid}: {e}", file=sys.stderr)
+            raise
 
     return 0
 

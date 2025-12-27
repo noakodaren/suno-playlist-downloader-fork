@@ -4,6 +4,18 @@ import requests
 
 API_BASE = "https://studio-api.prod.suno.com"
 
+def merge_json(a, b):
+    if isinstance(a, dict) and isinstance(b, dict):
+        result = a.copy()
+        for key, value in b.items():
+            if key in result:
+                result[key] = merge_json(result[key], value)
+            else:
+                result[key] = value
+        return result
+    if isinstance(a, list) and isinstance(b,list):
+        return a + b
+    return b
 
 class SunoAPI:
     def __init__(self, bearer_token: str, device_id: str, timeout: int = 30):
@@ -25,18 +37,31 @@ class SunoAPI:
         }
 
     def get_playlist(self, playlist_id: str) -> Dict[str, Any]:
-        url = f"{API_BASE}/api/playlist/{playlist_id}"
-        r = requests.get(url, headers=self._headers(), timeout=self.timeout)
-        r.raise_for_status()
-        return r.json()
+        all = {}
+        for page in range(1,1000000):
+            url = f"{API_BASE}/api/playlist/{playlist_id}/?page={page}"
+            r = requests.get(url, headers=self._headers(), timeout=self.timeout)
+            #print(r.text)
+            r.raise_for_status()
+            x = r.json()
+            if len(x.get('playlist_clips')) == 0:
+                break
+            all = merge_json(all, x)
+        print(f"Song count: {len(all.get('playlist_clips'))}")
+        return all
 
     def request_download_url(self, clip_id: str) -> Optional[str]:
-        url = f"{API_BASE}/api/billing/clips/{clip_id}/download/"
-        r = requests.post(url, headers=self._headers(), timeout=self.timeout)
+        url1 = f"{API_BASE}/api/gen/{clip_id}/convert_wav/"
+        r1 = requests.post(url1, headers=self._headers(), timeout=self.timeout)
+        url = f"{API_BASE}/api/gen/{clip_id}/wav_file/"
+        r = requests.get(url, headers=self._headers(), timeout=self.timeout)
         r.raise_for_status()
         try:
             data = r.json()
         except ValueError:
-            return None
-        # common key is download_url — but defensive check
-        return data.get("download_url") or data.get("url")
+            ret = f"https://cdn1.suno.ai/{clip_id}.wav"
+            return ret
+        ret = data.get("wav_file_url")
+        if ret is None:
+            ret = f"https://cdn1.suno.ai/{clip_id}.wav"
+        return ret
